@@ -86,10 +86,8 @@ if(!currentUser){ location.href=‘MGI Quiz Hub.html’; }
 // ── Firebase 헬퍼
 const DS = {qS:{},tS:{},ov:{c:0,w:0,n:0},banks:{0:[],1:[],2:[],3:[],4:[]}};
 async function loadSt(){
-try{
-const snap = await get(ref(db, `users/${currentUser}/${QUIZ_ID}`));
-return snap.exists() ? snap.val() : JSON.parse(JSON.stringify(DS));
-}catch(e){ return JSON.parse(JSON.stringify(DS)); }
+  const snap = await get(ref(db, `users/${currentUser}/${QUIZ_ID}`));
+  return snap.exists() ? snap.val() : JSON.parse(JSON.stringify(DS));
 }
 async function saveSt(st){
 try{ await set(ref(db, `users/${currentUser}/${QUIZ_ID}`), st); }catch(e){}
