@@ -656,8 +656,15 @@ let st=cp(DS), sess=null, fb=null;
 // ── 초기화
 async function init(){
 document.getElementById(‘root’).innerHTML=’<div style="text-align:center;padding:60px;color:#888">기록 불러오는 중…</div>’;
-st = await loadSt();
+try {
+st = await Promise.race([
+loadSt(),
+new Promise((_,reject) => setTimeout(() => reject(new Error(‘Firebase 연결 시간 초과 (10초)’)), 10000))
+]);
 render();
+} catch(e) {
+document.getElementById(‘root’).innerHTML=`<div style="text-align:center;padding:40px;color:#c62828;font-size:13px;line-height:2"> ❌ 오류 발생<br><b>${e.message}</b><br><br> <button onclick="init()" style="padding:10px 20px;background:#1a1a18;color:#fff;border:none;border-radius:8px;cursor:pointer">다시 시도</button> </div>`;
+}
 }
 
 function start(mode,tid=null,bi=null){
