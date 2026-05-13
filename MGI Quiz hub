@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -325,6 +324,5 @@ window._logout = () => {
 // ── 시작
 init();
 </script>
-
 </body>
 </html>
