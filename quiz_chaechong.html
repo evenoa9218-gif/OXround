@@ -53,14 +53,12 @@ body{font-family:'Noto Serif KR',serif;background:#f5f4f0;color:#1a1a18;min-heig
 .ar{display:flex;gap:10px;flex-wrap:wrap}
 .rst{font-family:'Noto Serif KR',serif;font-size:11px;color:#aaa;background:none;border:1px solid #ddd;border-radius:8px;padding:6px 12px;cursor:pointer;margin-top:6px}
 .rst:hover{color:#c62828;border-color:#e57373}</style>
+<script src=”https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js”></script>
+<script src=”https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js”></script>
 </head>
 <body>
-<div class="app" id="root"><div style="text-align:center;padding:60px;color:#888">불러오는 중...</div></div>
-<script type="module">
-
-// ── Firebase
-import { initializeApp } from “https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js”;
-import { getDatabase, ref, get, set } from “https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js”;
+<div class=”app” id=”root”></div>
+<script>
 
 const firebaseConfig = {
 apiKey: “AIzaSyCrVPnha-pqrAyTYMdSvYP036HsJGJEMxw”,
@@ -71,8 +69,8 @@ storageBucket: “union-mgipoint-ox-quiz.firebasestorage.app”,
 messagingSenderId: “1187923060”,
 appId: “1:1187923060:web:2cebb02a328f8d3c3c3d21”
 };
-const fbApp = initializeApp(firebaseConfig);
-const db = getDatabase(fbApp);
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
 
 // ── 퀴즈 ID & 메타
 const QUIZ_ID = ‘chaechong_521’;
@@ -87,19 +85,15 @@ if(!currentUser){ location.href=‘MGI Quiz Hub.html’; }
 const DS = {qS:{},tS:{},ov:{c:0,w:0,n:0},banks:{0:[],1:[],2:[],3:[],4:[]}};
 async function loadSt(){
 try{
-const snap = await Promise.race([
-  get(ref(db, `users/${currentUser}/${QUIZ_ID}`)),
-  new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),5000))
-]);
+const snap = await db.ref('users/'+currentUser+'/'+QUIZ_ID).once('value');
 return snap.exists() ? snap.val() : JSON.parse(JSON.stringify(DS));
 }catch(e){ return JSON.parse(JSON.stringify(DS)); }
 }
 async function saveSt(st){
-try{ await set(ref(db, `users/${currentUser}/${QUIZ_ID}`), st); }catch(e){}
-// 퀴즈 메타 등록 (없으면)
+try{ await db.ref('users/'+currentUser+'/'+QUIZ_ID).set(st); }catch(e){}
 try{
-const snap = await get(ref(db, `quizzes/${QUIZ_ID}`));
-if(!snap.exists()) await set(ref(db, `quizzes/${QUIZ_ID}`), QUIZ_META);
+const snap = await db.ref('quizzes/'+QUIZ_ID).once('value');
+if(!snap.exists()) await db.ref('quizzes/'+QUIZ_ID).set(QUIZ_META);
 }catch(e){}
 }
 
@@ -658,14 +652,15 @@ let st=cp(DS), sess=null, fb=null;
 
 // ── 초기화
 async function init(){
-document.getElementById('root').innerHTML='<div style="text-align:center;padding:60px;color:#888">기록 불러오는 중…</div>';
-const withTimeout = ms => new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms));
-try{
-  st = await Promise.race([loadSt(), withTimeout(5000)]);
-}catch(e){ st=cp(DS); }
+// Firebase 기다리지 않고 즉시 렌더링
 render();
-get(ref(db,`quizzes/${QUIZ_ID}`)).then(snap=>{
-  if(!snap.exists()) set(ref(db,`quizzes/${QUIZ_ID}`),QUIZ_META);
+// 백그라운드에서 Firebase 데이터 로드 후 홈 화면만 갱신
+loadSt().then(loaded=>{
+  if(!sess){ st=loaded; render(); }
+}).catch(()=>{});
+// 퀴즈 메타 백그라운드 등록
+db.ref('quizzes/'+QUIZ_ID).once('value').then(snap=>{
+  if(!snap.exists()) db.ref('quizzes/'+QUIZ_ID).set(QUIZ_META);
 }).catch(()=>{});
 }
 
@@ -786,7 +781,7 @@ st=cp(DS);saveSt(st).then(()=>{sess=null;fb=null;render();});
 }
 }
 
-init();
+window.onload = init;
 
 </script>
 </body>
