@@ -655,13 +655,16 @@ let st=cp(DS), sess=null, fb=null;
 
 // ── 초기화
 async function init(){
-document.getElementById('root').innerHTML='<div style="text-align:center;padding:60px;color:#888">기록 불러오는 중…</div>';
-try{
-const snap=await get(ref(db,`quizzes/${QUIZ_ID}`));
-if(!snap.exists()) await set(ref(db,`quizzes/${QUIZ_ID}`),QUIZ_META);
-}catch(e){}
-st = await loadSt();
+// Firebase 기다리지 않고 즉시 렌더링
 render();
+// 백그라운드에서 Firebase 데이터 로드 후 홈 화면만 갱신
+loadSt().then(loaded=>{
+  if(!sess){ st=loaded; render(); }
+}).catch(()=>{});
+// 퀴즈 메타 백그라운드 등록
+get(ref(db,`quizzes/${QUIZ_ID}`)).then(snap=>{
+  if(!snap.exists()) set(ref(db,`quizzes/${QUIZ_ID}`),QUIZ_META);
+}).catch(()=>{});
 }
 
 function start(mode,tid=null,bi=null){
