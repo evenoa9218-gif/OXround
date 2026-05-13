@@ -53,51 +53,54 @@ body{font-family:'Noto Serif KR',serif;background:#f5f4f0;color:#1a1a18;min-heig
 .ar{display:flex;gap:10px;flex-wrap:wrap}
 .rst{font-family:'Noto Serif KR',serif;font-size:11px;color:#aaa;background:none;border:1px solid #ddd;border-radius:8px;padding:6px 12px;cursor:pointer;margin-top:6px}
 .rst:hover{color:#c62828;border-color:#e57373}</style>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 </head>
 <body>
 <div class="app" id="root"><div style="text-align:center;padding:60px;color:#888">불러오는 중...</div></div>
-<script>
-const firebaseConfig = {
-  apiKey: "AIzaSyCrVPnha-pqrAyTYMdSvYP036HsJGJEMxw",
-  authDomain: "union-mgipoint-ox-quiz.firebaseapp.com",
-  databaseURL: "https://union-mgipoint-ox-quiz-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "union-mgipoint-ox-quiz",
-  storageBucket: "union-mgipoint-ox-quiz.firebasestorage.app",
-  messagingSenderId: "1187923060",
-  appId: "1:1187923060:web:2cebb02a328f8d3c3c3d21"
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
+<script type="module">
 
+// ── Firebase
+import { initializeApp } from “https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js”;
+import { getDatabase, ref, get, set } from “https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js”;
+
+const firebaseConfig = {
+apiKey: “AIzaSyCrVPnha-pqrAyTYMdSvYP036HsJGJEMxw”,
+authDomain: “union-mgipoint-ox-quiz.firebaseapp.com”,
+databaseURL: “https://union-mgipoint-ox-quiz-default-rtdb.asia-southeast1.firebasedatabase.app”,
+projectId: “union-mgipoint-ox-quiz”,
+storageBucket: “union-mgipoint-ox-quiz.firebasestorage.app”,
+messagingSenderId: “1187923060”,
+appId: “1:1187923060:web:2cebb02a328f8d3c3c3d21”
+};
+const fbApp = initializeApp(firebaseConfig);
+const db = getDatabase(fbApp);
+
+// ── 퀴즈 ID & 메타
 const QUIZ_ID = ‘chaechong_521’;
 const QUIZ_META = { title:’[채총] 유니온 MGI Point’, subject:‘민법’, qCount:521, topicCount:16 };
 
+// ── URL에서 사용자 파싱
 const params = new URLSearchParams(location.search);
 const currentUser = decodeURIComponent(params.get(‘user’)||’’);
 if(!currentUser){ location.href=‘MGI Quiz Hub.html’; }
 
+// ── Firebase 헬퍼
 const DS = {qS:{},tS:{},ov:{c:0,w:0,n:0},banks:{0:[],1:[],2:[],3:[],4:[]}};
-
 async function loadSt(){
 try{
-const snap = await db.ref(‘users/’+currentUser+’/’+QUIZ_ID).once(‘value’);
+const snap = await get(ref(db, `users/${currentUser}/${QUIZ_ID}`));
 return snap.exists() ? snap.val() : JSON.parse(JSON.stringify(DS));
-}catch(e){
-document.getElementById(‘root’).innerHTML=’오류: ’+e.message;
-return JSON.parse(JSON.stringify(DS));
+}catch(e){ return JSON.parse(JSON.stringify(DS)); }
 }
-}
-
 async function saveSt(st){
-try{ await db.ref(‘users/’+currentUser+’/’+QUIZ_ID).set(st); }catch(e){}
+try{ await set(ref(db, `users/${currentUser}/${QUIZ_ID}`), st); }catch(e){}
+// 퀴즈 메타 등록 (없으면)
 try{
-const snap = await db.ref(‘quizzes/’+QUIZ_ID).once(‘value’);
-if(!snap.exists()) await db.ref(‘quizzes/’+QUIZ_ID).set(QUIZ_META);
+const snap = await get(ref(db, `quizzes/${QUIZ_ID}`));
+if(!snap.exists()) await set(ref(db, `quizzes/${QUIZ_ID}`), QUIZ_META);
 }catch(e){}
 }
 
+// ── 퀴즈 데이터
 const T=[
 {id:1,n:‘채권관계 보호의무’},
 {id:2,n:‘채권의 목적 · 외화채권 · 종류채권’},
@@ -641,25 +644,31 @@ Q(520,16,‘이행인수는 채무자와 인수인 사이의 계약으로 인수
 Q(521,16,‘매수인이 근저당권의 피담보채무액을 매매대금에서 공제하기로 약정한 경우, 매수인이 그 근저당채무를 인수하여 매매대금의 일부로 갈음하는 것이다.’,true,’’)
 ];
 
-function shuf(a){const b=[…a];for(let i=b.length-1;i>0;i–){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]]}return b}
+// ── 유틸
+function shuf(a){const b=[...a];for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]]}return b}
 function cp(o){return JSON.parse(JSON.stringify(o))}
 function tn(id){return T.find(t=>t.id===id)?.n||’’}
 function fq(id){return QQ.find(q=>q.id===id)}
 
-let st=cp(DS),sess=null,fb=null;
+// ── 상태
+let st=cp(DS), sess=null, fb=null;
 
+// ── 초기화
 async function init(){
-document.getElementById(‘root’).innerHTML=’<div style="text-align:center;padding:60px;color:#888">기록 불러오는 중…</div>’;
+document.getElementById('root').innerHTML='<div style="text-align:center;padding:60px;color:#888">기록 불러오는 중…</div>';
+try{
+const snap=await get(ref(db,`quizzes/${QUIZ_ID}`));
+if(!snap.exists()) await set(ref(db,`quizzes/${QUIZ_ID}`),QUIZ_META);
+}catch(e){}
 st = await loadSt();
 render();
 }
 
-function start(mode,tid,bi){
-tid=tid||null;bi=bi||null;
+function start(mode,tid=null,bi=null){
 let qs=[];
 if(mode===‘topic’) qs=shuf(QQ.filter(q=>q.topicId===tid).map(q=>q.id));
 else if(mode===‘rand’) qs=shuf(QQ.map(q=>q.id)).slice(0,100);
-else qs=shuf([…(st.banks[bi]||[])]);
+else qs=shuf([...(st.banks[bi]||[])]);
 if(!qs.length) return;
 sess={mode,tid,bi,qs,idx:0,cor:[],wr:[]};fb=null;render();
 }
@@ -668,12 +677,12 @@ function ans(ua){
 if(fb) return;
 const q=fq(sess.qs[sess.idx]),ok=ua===q.answer;
 fb={ok,ua};
-if(오케이) sess.cor.push(q.id); else sess.wr.push(q.id);
+if(ok) sess.cor.push(q.id); else sess.wr.push(q.id);
 const ns=cp(st);
 const qs=ns.qS[q.id]||{c:0,w:0};ns.qS[q.id]={c:qs.c+(ok?1:0),w:qs.w+(ok?0:1)};
 const ts=ns.tS[q.topicId]||{c:0,w:0,n:0};ns.tS[q.topicId]={c:ts.c+(ok?1:0),w:ts.w+(ok?0:1),n:ts.n+1};
 ns.ov={c:(ns.ov.c||0)+(ok?1:0),w:(ns.ov.w||0)+(ok?0:1),n:(ns.ov.n||0)+1};
-st=ns;saveSt(st);render();
+st=ns; saveSt(st); render();
 }
 
 function nxt(){
@@ -685,13 +694,13 @@ if(nx>=sess.qs.length) fin(); else {sess.idx=nx;render();}
 function fin(){
 const s=sess,ns=cp(st);
 if(s.mode===‘review’){
-const bi=s.bi,answered=new Set([…s.cor,…s.wr]);
+const bi=s.bi,answered=new Set([...s.cor,...s.wr]);
 ns.banks[bi]=(ns.banks[bi]||[]).filter(id=>!answered.has(id));
-if(bi+1<=4){const nx=new Set(ns.banks[bi+1]||[]);s.wr.forEach(id=>nx.add(id));ns.banks[bi+1]=[…nx];}
+if(bi+1<=4){const nx=new Set(ns.banks[bi+1]||[]);s.wr.forEach(id=>nx.add(id));ns.banks[bi+1]=[...nx];}
 } else {
-const ex=new Set(ns.banks[0]||[]);s.wr.forEach(id=>ex.add(id));s.cor.forEach(id=>ex.delete(id));ns.banks[0]=[…ex];
+const ex=new Set(ns.banks[0]||[]);s.wr.forEach(id=>ex.add(id));s.cor.forEach(id=>ex.delete(id));ns.banks[0]=[...ex];
 }
-st=ns;saveSt(st).then(()=>render(‘r’));
+st=ns; saveSt(st).then(()=>render(‘r’));
 }
 
 function render(fv){
@@ -703,49 +712,77 @@ else{sess=null;fb=null;rHome(root);}
 
 function rHome(root){
 const ov=st.ov||{c:0,w:0,n:0},pct=ov.n?Math.round(ov.c/ov.n*100):0;
-let h=’<div class="hdr"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><button class="rst" style="margin-top:0;font-size:11px" onclick="window.location.href='MGI Quiz Hub.html'">← 허브로</button><button class="rst" style="margin-top:0;font-size:11px;color:#888">👤 ‘+currentUser+’</button></div><div class="hdr-title">[채총] 유니온 MGI Point</div><div class="hdr-count">총 ‘+QQ.length+‘문제 · 16개 주제</div></div>’;
-h+=’<div class="stat-row"><div class="sc"><div class="sv">’+ov.n+’</div><div class="sl">전체 시도</div></div><div class="sc"><div class="sv ok">’+ov.c+’</div><div class="sl">정답</div></div><div class="sc"><div class="sv er">’+ov.w+’</div><div class="sl">오답</div></div><div class="sc"><div class="sv wa">’+(ov.n?pct+’%’:’-’)+’</div><div class="sl">정답률</div></div></div>’;
-h+=’<div class="sec">모드 선택</div><div style="display:flex;gap:8px;margin-bottom:10px"><button class="btn btn-p" style="flex:1" onclick="start('rand')">🔀 무작위 100문제 풀기</button></div><div class="rv">’;
-const lbs=[‘1차 오답’,‘2차 오답’,‘3차 오답’,‘4차 오답’,‘5차 오답’];
-for(let i=0;i<5;i++){const cnt=(st.banks[i]||[]).length,cls=cnt>0?‘rb on’:‘rb’,oc=cnt>0?‘onclick=“start(‘review’,null,’+i+’)”’:’ ‘;h+=’<button class=”’+cls+’” ‘+oc+’>’+lbs[i]+’<br><span style="font-size:11px">’+cnt+‘문제</span></button>’;}
-h+=’</div><div class="sec" style="margin-top:4px">주제별 풀기</div><div class="tg">’;
-T.forEach(function(t){const ts=st.tS[t.id]||{c:0,w:0,n:0},qc=QQ.filter(q=>q.topicId===t.id).length,p=ts.n?Math.round(ts.c/ts.n*100):null;
-h+=’<button class="tc" onclick="start('topic','+t.id+')"><div class="tn">Topic ‘+t.id+’</div><div class="tt">’+t.n+’</div><div class="ts"><span>’+qc+‘문제</span>’+(ts.n?’<span class="ok">✓’+ts.c+’</span><span class="er">✗’+ts.w+’</span><span class="wa">’+p+’%</span>’:’<span style="color:#ccc">미풀이</span>’)+’</div></button>’;});
-h+=’</div><div style="text-align:center;margin-top:16px"><button class="rst" onclick="confirmReset()">전체 초기화</button></div>’;
-root.innerHTML=h;
+let h=`<div class="hdr">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+<button class="rst" style="margin-top:0;font-size:11px" onclick="window.location.href='MGI Quiz Hub.html'">← 허브로</button>
+<button class="rst" style="margin-top:0;font-size:11px;color:#888">👤 ${currentUser}</button>
+</div>
+<div class="hdr-title">[채총] 유니온 MGI Point</div>
+<div class="hdr-count">총 ${QQ.length}문제 · 16개 주제 · 채권관계 보호의무 ~ 채무인수</div>
+
+  </div>
+  <div class="stat-row">
+    <div class="sc"><div class="sv">${ov.n}</div><div class="sl">전체 시도</div></div>
+    <div class="sc"><div class="sv ok">${ov.c}</div><div class="sl">정답</div></div>
+    <div class="sc"><div class="sv er">${ov.w}</div><div class="sl">오답</div></div>
+    <div class="sc"><div class="sv wa">${ov.n?pct+'%':'-'}</div><div class="sl">정답률</div></div>
+  </div>
+  <div class="sec">모드 선택</div>
+  <div style="display:flex;gap:8px;margin-bottom:10px"><button class="btn btn-p" style="flex:1" onclick="start('rand')">🔀 무작위 100문제 풀기</button></div>
+  <div class="rv">`;
+  const lbs=['1차 오답','2차 오답','3차 오답','4차 오답','5차 오답'];
+  for(let i=0;i<5;i++){const cnt=(st.banks[i]||[]).length,cls=cnt>0?'rb on':'rb',oc=cnt>0?`onclick="start('review',null,${i})"`:' ';h+=`<button class="${cls}" ${oc}>${lbs[i]}<br><span style="font-size:11px">${cnt}문제</span></button>`;}
+  h+=`</div><div class="sec" style="margin-top:4px">주제별 풀기</div><div class="tg">`;
+  T.forEach(t=>{const ts=st.tS[t.id]||{c:0,w:0,n:0},qc=QQ.filter(q=>q.topicId===t.id).length,p=ts.n?Math.round(ts.c/ts.n*100):null;
+    h+=`<button class="tc" onclick="start('topic',${t.id})"><div class="tn">Topic ${t.id}</div><div class="tt">${t.n}</div><div class="ts"><span>${qc}문제</span>${ts.n?`<span class="ok">✓${ts.c}</span><span class="er">✗${ts.w}</span><span class="wa">${p}%</span>`:'<span style="color:#ccc">미풀이</span>'}</div></button>`;});
+  h+=`</div><div style="text-align:center;margin-top:16px"><button class="rst" onclick="confirmReset()">전체 초기화</button></div>`;
+  root.innerHTML=h;
 }
 
 function rQuiz(root){
 const s=sess,q=fq(s.qs[s.idx]),tp=T.find(t=>t.id===q.topicId),total=s.qs.length,cur=s.idx+1,pct=Math.round(cur/total*100);
-const ml=s.mode===‘topic’?‘주제별 · ‘+tn(s.tid):s.mode===‘rand’?‘무작위 100문제’:(s.bi+1)+‘차 오답 풀이’;
+const ml=s.mode===‘topic’?`주제별 · ${tn(s.tid)}`:s.mode===‘rand’?‘무작위 100문제’:`${s.bi+1}차 오답 풀이`;
 let fbH=’’;
-if(fb){const ok=fb.ok,av=q.answer?‘O’:‘X’;fbH=’<div class="fb '+(ok?'fbok':'fber')+'"><div class="fbt '+(ok?'ok':'er')+'">’+(ok?‘✓ 정답입니다’:‘✗ 오답 — 정답: ‘+av)+’</div>’+(q.explanation?’<div class="fbe">’+q.explanation+’</div>’:’’)+’</div>’;}
-const isL=cur>=total,btnH=fb?’<button class="btn btn-p" style="width:100%;padding:14px;font-size:15px" onclick="nxt()">’+(isL?‘결과 보기 →’:‘다음 문제 →’)+’</button>’:’<div class="ab"><button class="bo" onclick="ans(true)">O</button><button class="bx" onclick="ans(false)">X</button></div>’;
-root.innerHTML=’<div style="padding-top:10px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><span style="font-size:12px;color:#888">’+ml+’</span><span style="font-size:12px;color:#888">’+cur+’/’+total+’</span></div><div class="pb"><div class="pf" style="width:'+pct+'%"></div></div><div class="pr"><span class="ok">✓ ‘+s.cor.length+’</span><span class="er">✗ ‘+s.wr.length+’</span><span>남은 ‘+(total-s.idx-(fb?1:0))+‘문제</span></div><div class="qc" style="margin-top:10px"><div class="qt">Topic ‘+tp?.id+’ · ‘+tp?.n+’</div><div class="qq">’+q.text+’</div>’+fbH+’</div>’+btnH+’<div style="text-align:center;margin-top:10px"><button class="rst" onclick="quit()">세션 종료</button></div></div>’;
+if(fb){const ok=fb.ok,av=q.answer?‘O’:‘X’;fbH=`<div class="fb ${ok?'fbok':'fber'}"><div class="fbt ${ok?'ok':'er'}">${ok?'✓ 정답입니다':'✗ 오답 — 정답: '+av}</div>${q.explanation?`<div class="fbe">${q.explanation}</div>`:''}</div>`;}
+const isL=cur>=total,btnH=fb?`<button class="btn btn-p" style="width:100%;padding:14px;font-size:15px" onclick="nxt()">${isL?'결과 보기 →':'다음 문제 →'}</button>`:`<div class="ab"><button class="bo" onclick="ans(true)">O</button><button class="bx" onclick="ans(false)">X</button></div>`;
+root.innerHTML=`<div style="padding-top:10px">
+
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><span style="font-size:12px;color:#888">${ml}</span><span style="font-size:12px;color:#888">${cur}/${total}</span></div>
+  <div class="pb"><div class="pf" style="width:${pct}%"></div></div>
+  <div class="pr"><span class="ok">✓ ${s.cor.length}</span><span class="er">✗ ${s.wr.length}</span><span>남은 ${total-s.idx-(fb?1:0)}문제</span></div>
+  <div class="qc" style="margin-top:10px"><div class="qt">Topic ${tp?.id} · ${tp?.n}</div><div class="qq">${q.text}</div>${fbH}</div>
+  ${btnH}
+  <div style="text-align:center;margin-top:10px"><button class="rst" onclick="quit()">세션 종료</button></div></div>`;
 }
 
 function rResult(root){
 const s=sess,total=s.qs.length,cor=s.cor.length,wr=s.wr.length,pct=total?Math.round(cor/total*100):0;
-const ml=s.mode===‘topic’?tn(s.tid):s.mode===‘rand’?‘무작위 100문제’:(s.bi+1)+‘차 오답 풀이’;
+const ml=s.mode===‘topic’?tn(s.tid):s.mode===‘rand’?‘무작위 100문제’:`${s.bi+1}차 오답 풀이`;
 const cm=pct===100?‘완벽합니다! 모든 문제를 맞혔습니다.’:pct>=80?‘훌륭합니다. 오답 문제를 재확인하세요.’:pct>=60?‘양호합니다. 오답 위주로 반복 학습하세요.’:‘오답 문제를 중심으로 반드시 재복습하세요.’;
 const nbi=s.mode===‘review’?(s.bi+1):0,nct=(st.banks[nbi]||[]).length;
 let wlH=’’;
-if(s.wr.length>0){wlH=’<div class="sec" style="margin-bottom:7px">이번 오답 목록</div><div class="wl">’;s.wr.forEach(function(id){const q=fq(id);if(q)wlH+=’<div class="wi">’+q.text+’<div class="wa2">정답: ‘+(q.answer?‘O’:‘X’)+(q.explanation?’ — ‘+q.explanation:’’)+’</div></div>’;});wlH+=’</div>’;}
+if(s.wr.length>0){wlH=`<div class="sec" style="margin-bottom:7px">이번 오답 목록</div><div class="wl">`;s.wr.forEach(id=>{const q=fq(id);if(q)wlH+=`<div class="wi">${q.text}<div class="wa2">정답: ${q.answer?'O':'X'}${q.explanation?' — '+q.explanation:''}</div></div>`;});wlH+=`</div>`;}
 let rvH=’’;
-if(nct>0){const lbl=s.mode===‘review’?(s.bi+2)+‘차 오답 풀이’:‘1차 오답 풀이’;rvH=’<button class="btn btn-d" onclick="start('review',null,'+nbi+')" style="flex:1">’+lbl+’ (’+nct+‘문제)</button>’;}
-root.innerHTML=’<div style="padding-top:14px"><div style="text-align:center"><div style="font-size:12px;color:#888;margin-bottom:5px">’+ml+’ 완료</div><div class="rp">’+pct+’%</div><div class="rm">’+cm+’</div></div><div class="rg"><div class="sc"><div class="sv">’+total+’</div><div class="sl">총 문제</div></div><div class="sc"><div class="sv ok">’+cor+’</div><div class="sl">정답</div></div><div class="sc"><div class="sv er">’+wr+’</div><div class="sl">오답</div></div></div>’+(wr>0?’<div style="background:#fff5f5;border:1px solid #e57373;border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:13px;color:#c62828">이번 오답 ‘+wr+‘문제가 오답 뱅크에 추가되었습니다.</div>’:’’)+wlH+’<div class="ar"><button class="btn btn-p" style="flex:1" onclick="goH()">홈으로</button>’+rvH+’</div></div>’;
+if(nct>0){const lbl=s.mode===‘review’?`${s.bi+2}차 오답 풀이`:‘1차 오답 풀이’;rvH=`<button class="btn btn-d" onclick="start('review',null,${nbi})" style="flex:1">${lbl} (${nct}문제)</button>`;}
+root.innerHTML=`<div style="padding-top:14px">
+
+  <div style="text-align:center"><div style="font-size:12px;color:#888;margin-bottom:5px">${ml} 완료</div><div class="rp">${pct}%</div><div class="rm">${cm}</div></div>
+  <div class="rg"><div class="sc"><div class="sv">${total}</div><div class="sl">총 문제</div></div><div class="sc"><div class="sv ok">${cor}</div><div class="sl">정답</div></div><div class="sc"><div class="sv er">${wr}</div><div class="sl">오답</div></div></div>
+  ${wr>0?`<div style="background:#fff5f5;border:1px solid #e57373;border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:13px;color:#c62828">이번 오답 ${wr}문제가 오답 뱅크에 추가되었습니다.</div>`:''}
+  ${wlH}
+  <div class="ar"><button class="btn btn-p" style="flex:1" onclick="goH()">홈으로</button>${rvH}</div></div>`;
 }
 
 function goH(){sess=null;fb=null;render();}
 function quit(){fin();}
 function confirmReset(){
 if(confirm(‘이 과목의 학습 기록을 초기화하시겠습니까?’)){
-st=cp(DS);saveSt(st).then(function(){sess=null;fb=null;render();});
+st=cp(DS);saveSt(st).then(()=>{sess=null;fb=null;render();});
 }
 }
 
-window.onload = function(){ init(); };
+init();
+
 </script>
-
 </body>
 </html>
