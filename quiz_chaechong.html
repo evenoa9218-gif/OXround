@@ -641,7 +641,7 @@ Q(520,16,‘이행인수는 채무자와 인수인 사이의 계약으로 인수
 Q(521,16,‘매수인이 근저당권의 피담보채무액을 매매대금에서 공제하기로 약정한 경우, 매수인이 그 근저당채무를 인수하여 매매대금의 일부로 갈음하는 것이다.’,true,’’)
 ];
 
-function shuf(a){const b=[…a];for(let i=b.length-1;i>0;i–){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]]}return b}
+function shuf(a){const b=[...a];for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]]}return b}
 function cp(o){return JSON.parse(JSON.stringify(o))}
 function tn(id){return T.find(t=>t.id===id)?.n||’’}
 function fq(id){return QQ.find(q=>q.id===id)}
@@ -659,7 +659,7 @@ tid=tid||null;bi=bi||null;
 let qs=[];
 if(mode===‘topic’) qs=shuf(QQ.filter(q=>q.topicId===tid).map(q=>q.id));
 else if(mode===‘rand’) qs=shuf(QQ.map(q=>q.id)).slice(0,100);
-else qs=shuf([…(st.banks[bi]||[])]);
+else qs=shuf([...(st.banks[bi]||[])]);
 if(!qs.length) return;
 sess={mode,tid,bi,qs,idx:0,cor:[],wr:[]};fb=null;render();
 }
@@ -685,11 +685,11 @@ if(nx>=sess.qs.length) fin(); else {sess.idx=nx;render();}
 function fin(){
 const s=sess,ns=cp(st);
 if(s.mode===‘review’){
-const bi=s.bi,answered=new Set([…s.cor,…s.wr]);
+const bi=s.bi,answered=new Set([...s.cor,...s.wr]);
 ns.banks[bi]=(ns.banks[bi]||[]).filter(id=>!answered.has(id));
-if(bi+1<=4){const nx=new Set(ns.banks[bi+1]||[]);s.wr.forEach(id=>nx.add(id));ns.banks[bi+1]=[…nx];}
+if(bi+1<=4){const nx=new Set(ns.banks[bi+1]||[]);s.wr.forEach(id=>nx.add(id));ns.banks[bi+1]=[...nx];}
 } else {
-const ex=new Set(ns.banks[0]||[]);s.wr.forEach(id=>ex.add(id));s.cor.forEach(id=>ex.delete(id));ns.banks[0]=[…ex];
+const ex=new Set(ns.banks[0]||[]);s.wr.forEach(id=>ex.add(id));s.cor.forEach(id=>ex.delete(id));ns.banks[0]=[...ex];
 }
 st=ns;saveSt(st).then(()=>render(‘r’));
 }
