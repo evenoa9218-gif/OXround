@@ -87,7 +87,10 @@ if(!currentUser){ location.href=‘MGI Quiz Hub.html’; }
 const DS = {qS:{},tS:{},ov:{c:0,w:0,n:0},banks:{0:[],1:[],2:[],3:[],4:[]}};
 async function loadSt(){
 try{
-const snap = await get(ref(db, `users/${currentUser}/${QUIZ_ID}`));
+const snap = await Promise.race([
+  get(ref(db, `users/${currentUser}/${QUIZ_ID}`)),
+  new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),5000))
+]);
 return snap.exists() ? snap.val() : JSON.parse(JSON.stringify(DS));
 }catch(e){ return JSON.parse(JSON.stringify(DS)); }
 }
@@ -656,12 +659,14 @@ let st=cp(DS), sess=null, fb=null;
 // ── 초기화
 async function init(){
 document.getElementById('root').innerHTML='<div style="text-align:center;padding:60px;color:#888">기록 불러오는 중…</div>';
+const withTimeout = ms => new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms));
 try{
-const snap=await get(ref(db,`quizzes/${QUIZ_ID}`));
-if(!snap.exists()) await set(ref(db,`quizzes/${QUIZ_ID}`),QUIZ_META);
-}catch(e){}
-st = await loadSt();
+  st = await Promise.race([loadSt(), withTimeout(5000)]);
+}catch(e){ st=cp(DS); }
 render();
+get(ref(db,`quizzes/${QUIZ_ID}`)).then(snap=>{
+  if(!snap.exists()) set(ref(db,`quizzes/${QUIZ_ID}`),QUIZ_META);
+}).catch(()=>{});
 }
 
 function start(mode,tid=null,bi=null){
