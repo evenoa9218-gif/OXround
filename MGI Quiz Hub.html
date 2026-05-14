@@ -67,6 +67,11 @@ const db  = getDatabase(app);
 const ADMIN_ID = 'admin';
 const ADMIN_PW = 'mgi2025!'; // ← 여기서 비밀번호 변경
 
+// ── 로컬 퀴즈 목록 (Firebase와 무관하게 항상 표시)
+const KNOWN_QUIZZES = {
+  'chaechong_521': { title:'[채총] 유니온 MGI Point', subject:'민법', qCount:521, topicCount:16, file:'quiz_chaechong.html' }
+};
+
 // ── 상태
 let currentUser = null;
 
@@ -157,7 +162,29 @@ window._doLogin = async () => {
 // 허브 (일반 사용자)
 // ──────────────────────────────────────────
 async function renderHub(){
-  const quizzes = await loadQuizList();
+  // 로컬 목록을 기본으로, Firebase 통계를 백그라운드에서 병합
+  let fbQuizzes = {};
+  try{
+    fbQuizzes = await Promise.race([
+      loadQuizList(),
+      new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),4000))
+    ]) || {};
+  }catch(e){ fbQuizzes = {}; }
+
+  // 로컬 퀴즈와 Firebase 퀴즈 병합 (로컬이 우선)
+  const quizzes = { ...fbQuizzes };
+  Object.entries(KNOWN_QUIZZES).forEach(([id, meta]) => {
+    quizzes[id] = { ...meta, ...(fbQuizzes[id]||{}) };
+  });
+
+  // Firebase에 미등록 퀴즈 백그라운드 등록
+  Object.entries(KNOWN_QUIZZES).forEach(([id, meta]) => {
+    if(!fbQuizzes[id]){
+      const {file, ...fbMeta} = meta;
+      fbSet(`quizzes/${id}`, fbMeta).catch(()=>{});
+    }
+  });
+
   const ids = Object.keys(quizzes);
 
   // 각 퀴즈별 사용자 기록 병렬 로드
@@ -167,30 +194,26 @@ async function renderHub(){
   }));
 
   let cards = '';
-  if(ids.length === 0){
-    cards = '<div style="text-align:center;padding:40px;color:#aaa">아직 등록된 퀴즈가 없습니다</div>';
-  } else {
-    cards = ids.map(id => {
-      const q = quizzes[id];
-      const rec = records[id];
-      const ov = rec.ov || {c:0,w:0,n:0};
-      const pct = ov.n ? Math.round(ov.c/ov.n*100) : null;
-      const b0 = (rec.banks&&rec.banks[0]||[]).length;
-      const barW = pct !== null ? pct : 0;
-      return `
-      <button class="quiz-card" onclick="window._openQuiz('${id}')">
-        <div class="badge">${q.subject||'민법'}</div>
-        <div class="quiz-card-title">${q.title}</div>
-        <div class="quiz-card-meta">
-          <span>📝 ${q.qCount}문제</span>
-          <span>📚 ${q.topicCount}주제</span>
-          ${ov.n ? `<span class="ok">✓${ov.c}</span><span class="er">✗${ov.w}</span>` : '<span style="color:#ccc">미풀이</span>'}
-          ${b0>0?`<span style="color:#c62828">오답 ${b0}</span>`:''}
-        </div>
-        ${ov.n?`<div class="quiz-card-bar"><div class="quiz-card-bar-fill" style="width:${barW}%"></div></div>`:''}
-      </button>`;
-    }).join('');
-  }
+  cards = ids.map(id => {
+    const q = quizzes[id];
+    const rec = records[id];
+    const ov = rec.ov || {c:0,w:0,n:0};
+    const pct = ov.n ? Math.round(ov.c/ov.n*100) : null;
+    const b0 = (rec.banks&&rec.banks[0]||[]).length;
+    const barW = pct !== null ? pct : 0;
+    return `
+    <button class="quiz-card" onclick="window._openQuiz('${id}')">
+      <div class="badge">${q.subject||'민법'}</div>
+      <div class="quiz-card-title">${q.title}</div>
+      <div class="quiz-card-meta">
+        <span>📝 ${q.qCount}문제</span>
+        <span>📚 ${q.topicCount}주제</span>
+        ${ov.n ? `<span class="ok">✓${ov.c}</span><span class="er">✗${ov.w}</span>` : '<span style="color:#ccc">미풀이</span>'}
+        ${b0>0?`<span style="color:#c62828">오답 ${b0}</span>`:''}
+      </div>
+      ${ov.n?`<div class="quiz-card-bar"><div class="quiz-card-bar-fill" style="width:${barW}%"></div></div>`:''}
+    </button>`;
+  }).join('');
 
   root().innerHTML = `
   <div class="hdr">
@@ -206,9 +229,8 @@ async function renderHub(){
 }
 
 window._openQuiz = (quizId) => {
-  // 퀴즈 페이지로 파라미터 전달
-  const url = `quiz_chaechong.html?id=${quizId}&user=${encodeURIComponent(currentUser)}`;
-  window.location.href = url;
+  const file = (KNOWN_QUIZZES[quizId]&&KNOWN_QUIZZES[quizId].file) || 'quiz_chaechong.html';
+  window.location.href = `${file}?id=${quizId}&user=${encodeURIComponent(currentUser)}`;
 };
 
 window._logout = () => {
