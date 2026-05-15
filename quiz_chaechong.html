@@ -55,47 +55,22 @@ body{font-family:'Noto Serif KR',serif;background:#f5f4f0;color:#1a1a18;min-heig
 .rst:hover{color:#c62828;border-color:#e57373}</style>
 </head>
 <body>
-<div class="app" id="root"><div style="text-align:center;padding:60px;color:#888">불러오는 중...</div></div>
-<script type=”module”>
+<div class=”app” id=”root”></div>
+<script>
 
-// ── Firebase 설정 (동적 로드)
-const firebaseConfig = {
-apiKey: “AIzaSyCrVPnha-pqrAyTYMdSvYP036HsJGJEMxw”,
-authDomain: “union-mgipoint-ox-quiz.firebaseapp.com”,
-databaseURL: “https://union-mgipoint-ox-quiz-default-rtdb.asia-southeast1.firebasedatabase.app”,
-projectId: “union-mgipoint-ox-quiz”,
-storageBucket: “union-mgipoint-ox-quiz.firebasestorage.app”,
-messagingSenderId: “1187923060”,
-appId: “1:1187923060:web:2cebb02a328f8d3c3c3d21”
-};
-// Firebase 함수 래퍼 (init 전에는 null)
-let _db=null, _ref=null, _get=null, _set=null;
-
-// ── 퀴즈 ID & 메타
+// ── 퀴즈 ID
 const QUIZ_ID = ‘chaechong_521’;
-const QUIZ_META = { title:’[채총] 유니온 MGI Point’, subject:‘민법’, qCount:521, topicCount:16 };
 
-// ── URL에서 사용자 파싱
-const params = new URLSearchParams(location.search);
-const currentUser = decodeURIComponent(params.get(‘user’)||’’);
-if(!currentUser){ location.href=‘MGI Quiz Hub.html’; }
-
-// ── Firebase 헬퍼
+// ── localStorage 헬퍼
 const DS = {qS:{},tS:{},ov:{c:0,w:0,n:0},banks:{0:[],1:[],2:[],3:[],4:[]}};
-async function loadSt(){
+function loadSt(){
 try{
-if(!_db) return JSON.parse(JSON.stringify(DS));
-const snap = await _get(_ref(_db, `users/${currentUser}/${QUIZ_ID}`));
-return snap.exists() ? snap.val() : JSON.parse(JSON.stringify(DS));
-}catch(e){ return JSON.parse(JSON.stringify(DS)); }
+const s=localStorage.getItem(QUIZ_ID);
+return s?JSON.parse(s):JSON.parse(JSON.stringify(DS));
+}catch(e){return JSON.parse(JSON.stringify(DS));}
 }
-async function saveSt(st){
-if(!_db) return;
-try{ await _set(_ref(_db, `users/${currentUser}/${QUIZ_ID}`), st); }catch(e){}
-try{
-const snap = await _get(_ref(_db, `quizzes/${QUIZ_ID}`));
-if(!snap.exists()) await _set(_ref(_db, `quizzes/${QUIZ_ID}`), QUIZ_META);
-}catch(e){}
+function saveSt(st){
+try{localStorage.setItem(QUIZ_ID,JSON.stringify(st));}catch(e){}
 }
 
 // ── 퀴즈 데이터
@@ -652,24 +627,9 @@ function fq(id){return QQ.find(q=>q.id===id)}
 let st=cp(DS), sess=null, fb=null;
 
 // ── 초기화
-async function init(){
-// 즉시 기본 화면 렌더 (Firebase 기다리지 않음)
+function init(){
+st=loadSt();
 render();
-// Firebase 동적 로드 (백그라운드)
-try{
-const [{initializeApp},{getDatabase,ref,get,set}]=await Promise.all([
-  import("https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"),
-  import("https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js")
-]);
-_db=getDatabase(initializeApp(firebaseConfig));
-_ref=ref;_get=get;_set=set;
-// Firebase 로드 후 사용자 기록 갱신
-if(!sess){ const loaded=await loadSt(); if(!sess){st=loaded;render();} }
-// 퀴즈 메타 등록
-get(ref(_db,`quizzes/${QUIZ_ID}`)).then(snap=>{
-  if(!snap.exists()) set(ref(_db,`quizzes/${QUIZ_ID}`),QUIZ_META);
-}).catch(()=>{});
-}catch(e){}
 }
 
 function start(mode,tid=null,bi=null){
@@ -708,7 +668,7 @@ if(bi+1<=4){const nx=new Set(ns.banks[bi+1]||[]);s.wr.forEach(id=>nx.add(id));ns
 } else {
 const ex=new Set(ns.banks[0]||[]);s.wr.forEach(id=>ex.add(id));s.cor.forEach(id=>ex.delete(id));ns.banks[0]=[...ex];
 }
-st=ns; saveSt(st).then(()=>render(‘r’));
+st=ns; saveSt(st); render(‘r’);
 }
 
 function render(fv){
@@ -722,8 +682,7 @@ function rHome(root){
 const ov=st.ov||{c:0,w:0,n:0},pct=ov.n?Math.round(ov.c/ov.n*100):0;
 let h=`<div class="hdr">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-<button class="rst" style="margin-top:0;font-size:11px" onclick="window.location.href='MGI Quiz Hub.html'">← 허브로</button>
-<button class="rst" style="margin-top:0;font-size:11px;color:#888">👤 ${currentUser}</button>
+<div></div>
 </div>
 <div class="hdr-title">[채총] 유니온 MGI Point</div>
 <div class="hdr-count">총 ${QQ.length}문제 · 16개 주제 · 채권관계 보호의무 ~ 채무인수</div>
@@ -785,7 +744,7 @@ function goH(){sess=null;fb=null;render();}
 function quit(){fin();}
 function confirmReset(){
 if(confirm(‘이 과목의 학습 기록을 초기화하시겠습니까?’)){
-st=cp(DS);saveSt(st).then(()=>{sess=null;fb=null;render();});
+st=cp(DS);saveSt(st);sess=null;fb=null;render();
 }
 }
 
