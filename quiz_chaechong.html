@@ -52,7 +52,8 @@ body{font-family:'Noto Serif KR',serif;background:#f5f4f0;color:#1a1a18;min-heig
 .wa2{color:#888;margin-top:3px;font-size:11px}
 .ar{display:flex;gap:10px;flex-wrap:wrap}
 .rst{font-family:'Noto Serif KR',serif;font-size:11px;color:#aaa;background:none;border:1px solid #ddd;border-radius:8px;padding:6px 12px;cursor:pointer;margin-top:6px}
-.rst:hover{color:#c62828;border-color:#e57373}</style>
+.rst:hover{color:#c62828;border-color:#e57373}
+#uid:focus{border-color:#1a1a18!important}</style>
 </head>
 <body>
 <div class=”app” id=”root”></div>
@@ -61,16 +62,20 @@ body{font-family:'Noto Serif KR',serif;background:#f5f4f0;color:#1a1a18;min-heig
 // ── 퀴즈 ID
 const QUIZ_ID = ‘chaechong_521’;
 
-// ── localStorage 헬퍼
+// ── 사용자 상태
+let currentUser = localStorage.getItem(‘quiz_last_user’) || ‘’;
+
+// ── localStorage 헬퍼 (사용자별 분리)
 const DS = {qS:{},tS:{},ov:{c:0,w:0,n:0},banks:{0:[],1:[],2:[],3:[],4:[]}};
+function stKey(){ return `quiz_${QUIZ_ID}_${currentUser}`; }
 function loadSt(){
 try{
-const s=localStorage.getItem(QUIZ_ID);
+const s=localStorage.getItem(stKey());
 return s?JSON.parse(s):JSON.parse(JSON.stringify(DS));
 }catch(e){return JSON.parse(JSON.stringify(DS));}
 }
-function saveSt(st){
-try{localStorage.setItem(QUIZ_ID,JSON.stringify(st));}catch(e){}
+function saveSt(s){
+try{localStorage.setItem(stKey(),JSON.stringify(s));}catch(e){}
 }
 
 // ── 퀴즈 데이터
@@ -628,6 +633,8 @@ let st=cp(DS), sess=null, fb=null;
 
 // ── 초기화
 function init(){
+const root=document.getElementById('root');
+if(!currentUser){ rLogin(root); return; }
 st=loadSt();
 render();
 }
@@ -673,16 +680,58 @@ st=ns; saveSt(st); render(‘r’);
 
 function render(fv){
 const root=document.getElementById(‘root’);if(!root) return;
-if(sess&&fv!==‘r’) rQuiz(root);
-else if(fv===‘r’&&sess) rResult(root);
+if(!currentUser){rLogin(root);return;}
+if(sess&&fv!==’r’) rQuiz(root);
+else if(fv===’r’&&sess) rResult(root);
 else{sess=null;fb=null;rHome(root);}
+}
+
+function rLogin(root){
+const last=localStorage.getItem('quiz_last_user')||'';
+root.innerHTML=`<div style="min-height:80vh;display:flex;align-items:center;justify-content:center;padding:20px">
+<div style="width:100%;max-width:360px">
+  <div style="text-align:center;margin-bottom:28px">
+    <div style="font-size:11px;color:#888;letter-spacing:2.5px;margin-bottom:8px">UNION LAW · MGI POINT</div>
+    <div style="font-size:24px;font-weight:700;color:#1a1a18">[채총] OX 퀴즈</div>
+    <div style="font-size:12px;color:#aaa;margin-top:6px">아이디를 입력하면 학습 기록이<br>이 기기에 저장됩니다</div>
+  </div>
+  <div style="background:#fff;border:1px solid #e0ddd6;border-radius:14px;padding:26px">
+    <div style="font-size:12px;color:#888;margin-bottom:8px">아이디 (영문·숫자·한글 20자 이내)</div>
+    <input id="uid" style="width:100%;font-family:inherit;font-size:14px;padding:11px 14px;border:1px solid #ddd;border-radius:10px;outline:none;background:#fafaf8;color:#1a1a18;margin-bottom:12px;box-sizing:border-box;transition:border .15s"
+      type="text" placeholder="예: Sol, 홍길동, user01" value="${last}"
+      onkeydown="if(event.key==='Enter')doLogin()" oninput="this.style.borderColor='#ddd'">
+    <button class="btn btn-p" style="width:100%;padding:13px;font-size:14px" onclick="doLogin()">시작하기</button>
+    <div style="font-size:11px;color:#bbb;text-align:center;margin-top:12px">같은 아이디로 이어서 풀 수 있습니다</div>
+  </div>
+</div></div>`;
+setTimeout(()=>{const el=document.getElementById('uid');if(el){el.focus();el.select();}},80);
+}
+
+function doLogin(){
+const el=document.getElementById('uid');
+if(!el) return;
+const uid=el.value.trim();
+if(!uid){el.style.borderColor='#e57373';return;}
+if(!/^[a-zA-Z0-9가-힣_\-]{1,20}$/.test(uid)){alert('20자 이내 영문·숫자·한글만 가능합니다.');return;}
+currentUser=uid;
+localStorage.setItem('quiz_last_user',uid);
+st=loadSt();
+render();
+}
+
+function doLogout(){
+currentUser='';
+sess=null;fb=null;
+const root=document.getElementById('root');
+rLogin(root);
 }
 
 function rHome(root){
 const ov=st.ov||{c:0,w:0,n:0},pct=ov.n?Math.round(ov.c/ov.n*100):0;
 let h=`<div class="hdr">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-<div></div>
+<div style="font-size:11px;color:#aaa">이 기기에 저장됨</div>
+<button class="rst" style="margin-top:0;font-size:11px" onclick="doLogout()">👤 ${currentUser} · 로그아웃</button>
 </div>
 <div class="hdr-title">[채총] 유니온 MGI Point</div>
 <div class="hdr-count">총 ${QQ.length}문제 · 16개 주제 · 채권관계 보호의무 ~ 채무인수</div>
